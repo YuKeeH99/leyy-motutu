@@ -1,0 +1,13 @@
+# LISA Hardware Timer Driver Configuration
+#
+# Copyright (c) 2025, LISTENAI
+# SPDX-License-Identifier: Apache-2.0
+
+config LISA_HWTIMER_ARCS_DUAL_TIMER
+	bool "Enable LISA Hardware Timer ARCS Dual Timer support"
+	help
+		Enable LISA Hardware Timer ARCS Dual Timer support.
+
+if LISA_HWTIMER_ARCS_DUAL_TIMER
+
+endif # LISA_HWTIMER_ARCS_DUAL_TIMER
