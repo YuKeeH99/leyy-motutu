@@ -1,0 +1,2 @@
+listenai_add_subdirectory_ifdef(CONFIG_SERVER_VOICE_LSCHAT lschat_server)
+add_subdirectory(lingxin_server)

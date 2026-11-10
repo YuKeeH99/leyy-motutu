@@ -1,0 +1,130 @@
+osource "$ARCS_BASE/Kconfig"
+
+menu "Voice Application"
+
+rsource "../../modules/Kconfig"
+rsource "../../src/Kconfig"
+orsource "../../apps-ui/Kconfig"
+
+config APP_CODEX_STATUS
+	bool "Display Codex status from a LAN bridge"
+	depends on BOARD_ARCS_MINI_V2_1 && LISA_WEBSOCKET && TONE
+	default n
+
+if APP_CODEX_STATUS
+
+config APP_CODEX_STATUS_AGENT_VOICE
+	bool "Support experimental Codex reply playback through the bound agent"
+	depends on VOICE_LINK_LINGXIN && LINGXIN_ENGINE_ENABLE && !LINGXIN_ENGINE_PROFILE_BASIC
+	default n
+
+config APP_CODEX_STATUS_DONE_MOTION
+	bool "Play a small squat before a Codex reply"
+	default n
+	help
+	  Perform one small squat before Codex reply audio.
+	  The existing background gait safety and cancellation rules apply.
+
+config APP_CODEX_VOICE_INPUT
+	bool "Route the office-mode wake word to Codex voice input"
+	depends on APP_CODEX_STATUS_AGENT_VOICE && LINGXIN_CLOUD_VAD_HALF_DUPLEX && MBEDTLS
+	default n
+
+config APP_CODEX_VOICE_KEY
+	string "Separate 32-byte hex key for signing office recordings"
+	depends on APP_CODEX_VOICE_INPUT
+	default ""
+
+config APP_CODEX_STATUS_HOST
+	string "Codex bridge LAN host"
+	default ""
+
+config APP_CODEX_STATUS_DISCOVERY
+	bool "Discover the paired Codex bridge on the local Wi-Fi network"
+	depends on MBEDTLS
+	default n
+
+config APP_CODEX_STATUS_PORT
+	string "Codex bridge WebSocket port"
+	default "8765"
+
+config APP_CODEX_STATUS_TOKEN
+	string "Codex bridge device token"
+	default ""
+
+endif
+
+config APP_STATIC_WIFI_BOOTSTRAP
+	bool "Bootstrap Wi-Fi when no access point is saved"
+	default n
+	help
+	  Save and connect to a build-time Wi-Fi network only when the device has
+	  no saved access point. Credentials provisioned later take precedence.
+
+config APP_STATIC_WIFI_SSID
+	string "Bootstrap Wi-Fi SSID"
+	depends on APP_STATIC_WIFI_BOOTSTRAP
+	default ""
+
+config APP_STATIC_WIFI_PASSWORD
+	string "Bootstrap Wi-Fi password"
+	depends on APP_STATIC_WIFI_BOOTSTRAP
+	default ""
+
+config APP_V2_VOICE_STANDBY_AUTO_ENABLE
+	bool "Automatically enter voice standby after idle timeout"
+	default y
+	help
+	  Disable to keep Wi-Fi and user-facing peripherals awake during idle.
+	  Manual standby and the independent idle shutdown timer remain available.
+
+config APP_V2_VOICE_STANDBY_TIMEOUT_MS
+	int "Voice standby idle timeout in milliseconds"
+	default 300000
+	range 10000 86400000
+	help
+	  After this much true idle time, park the robot and suspend nonessential
+	  peripherals while retaining microphone wake-word detection. Wi-Fi radio
+	  power is suspended until an accepted wake.
+
+config APP_V2_STANDBY_SHUTDOWN_TIMEOUT_MS
+	int "Automatic shutdown after continuous user inactivity (milliseconds)"
+	depends on BOARD_ARCS_MINI_V2_1
+	default 1200000
+	range 10000 86400000
+	help
+	  Count while awake or manually sleeping. Shut down through the normal
+	  power-off prompt and power worker after 20 unused minutes by default.
+	  User activity resets the deadline; background idle motion does not.
+	  Busy audio, foreground motion, provisioning or OTA defers shutdown.
+
+config APP_V2_GAIT_SAFETY_GATES_ENABLE
+	bool "Enable conservative gait safety gates"
+	default n
+	help
+	  Reject large motions on low battery, while USB is attached, or when the
+	  IMU pose is moving/ambiguous. Servo pulse hard limits, driver failures,
+	  STOP/ALL_OFF and upside-down recovery are always retained.
+
+config APP_V2_NFC_PEER_ENABLE
+	bool "Enable PN532 NFC peer discovery at boot"
+	default n
+	help
+	  Initialize and run the PN532 peer-discovery service at boot. Disable this
+	  on products that do not use NFC so the shared I2C peripheral stays idle.
+
+choice
+	prompt "小车舵机类型"
+	default CAR_SERVO_PWM
+	help
+	  选择四轮小车使用的舵机类型: PWM 舵机(4路独立PWM) 或 串口总线舵机(半双工)。
+
+config CAR_SERVO_PWM
+	bool "PWM 舵机 (PA04-07 四路PWM, gpt_pwm_4-7)"
+
+config CAR_SERVO_BUS
+	bool "串口总线舵机 (UART1 半双工, 高德诚协议)"
+
+endchoice
+
+endmenu

@@ -1,0 +1,16 @@
+/* Local soundtrack is mapped directly from CP flash, outside the 1 MiB tone
+ * partition. No expanded PCM allocation or copy into RAM. */
+.section .rodata.music_131,"a",@progbits
+.balign 4
+.global music_131_data
+.type music_131_data,@object
+music_131_data:
+.incbin "@MUSIC_131_FILE@"
+.Lmusic_131_end:
+.size music_131_data, .-music_131_data
+.balign 4
+.global music_131_size
+.type music_131_size,@object
+music_131_size:
+.word .Lmusic_131_end - music_131_data
+.size music_131_size, 4

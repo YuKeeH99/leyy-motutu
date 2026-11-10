@@ -1,0 +1,418 @@
+{
+  "project": {
+    "id": 21,
+    "name": "ARCS_MINI_V2_1",
+    "sdk": "v0.1.0",
+    "soc": "LS2684",
+    "package": "QFN76"
+  },
+  "pinConfig": {
+    "PA00": {
+      "alias": "CAMERA_RST",
+      "function": "gpioa_00",
+      "instance": "GPIOA",
+      "peripheral": "GPIO",
+      "signal": "GPIO_A_00"
+    },
+    "PA01": {
+      "alias": "PA_EN",
+      "function": "gpioa_01",
+      "instance": "GPIOA",
+      "peripheral": "GPIO",
+      "signal": "GPIO_A_01"
+    },
+    "PA02": {
+      "alias": "AP_LOG_RX",
+      "function": "uart0_rxd",
+      "instance": "UART0",
+      "peripheral": "UART",
+      "signal": "RX"
+    },
+    "PA03": {
+      "alias": "AP_LOG_TX",
+      "function": "uart0_txd",
+      "instance": "UART0",
+      "peripheral": "UART",
+      "signal": "TX"
+    },
+    "PA04": {
+      "alias": "SERVO_PWM4",
+      "function": "gpt_pwm_4",
+      "instance": "CH4",
+      "peripheral": "PWM",
+      "signal": "OUT"
+    },
+    "PA05": {
+      "alias": "SERVO_PWM5",
+      "function": "gpt_pwm_5",
+      "instance": "CH5",
+      "peripheral": "PWM",
+      "signal": "OUT"
+    },
+    "PA06": {
+      "alias": "SERVO_PWM6",
+      "function": "gpt_pwm_6",
+      "instance": "CH6",
+      "peripheral": "PWM",
+      "signal": "OUT"
+    },
+    "PA07": {
+      "alias": "SERVO_PWM7",
+      "function": "gpt_pwm_7",
+      "instance": "CH7",
+      "peripheral": "PWM",
+      "signal": "OUT"
+    },
+    "PA08": {
+      "alias": "WS2812_DATA",
+      "function": "gpioa_08",
+      "instance": "GPIOA",
+      "peripheral": "GPIO",
+      "signal": "GPIO_A_08"
+    },
+    "PA09": {
+      "alias": "TOUCH_SENSOR",
+      "function": "gpioa_09",
+      "instance": "GPIOA",
+      "peripheral": "GPIO",
+      "signal": "GPIO_A_09"
+    },
+    "PA12": {
+      "alias": "MPU_INT",
+      "function": "gpioa_12",
+      "instance": "GPIOA",
+      "peripheral": "GPIO",
+      "signal": "GPIO_A_12"
+    },
+    "PA13": {
+      "alias": "TOUCH_SENSOR_2",
+      "function": "gpioa_13",
+      "instance": "GPIOA",
+      "peripheral": "GPIO",
+      "signal": "GPIO_A_13"
+    },
+    "PA21": {
+      "alias": "LCD_PWM",
+      "function": "gpt_pwm_1",
+      "instance": "CH1",
+      "peripheral": "PWM",
+      "signal": "OUT"
+    },
+    "PA22": {
+      "alias": "LCD_CS",
+      "function": "spi0_cs_n",
+      "instance": "SPI0",
+      "peripheral": "SPI",
+      "signal": "CS"
+    },
+    "PA23": {
+      "alias": "LCD_CD",
+      "function": "gpioa_23",
+      "instance": "GPIOA",
+      "peripheral": "GPIO",
+      "signal": "GPIO_A_23"
+    },
+    "PA24": {
+      "alias": "LCD_SPI_DATA",
+      "function": "spi0_mosi",
+      "instance": "SPI0",
+      "peripheral": "SPI",
+      "signal": "MOSI"
+    },
+    "PA25": {
+      "alias": "LCD_SPI_CLK",
+      "function": "spi0_clk",
+      "instance": "SPI0",
+      "peripheral": "SPI",
+      "signal": "CLK"
+    },
+    "PA27": {
+      "alias": "LCD_TE",
+      "function": "gpioa_27",
+      "instance": "GPIOA",
+      "peripheral": "GPIO",
+      "signal": "GPIO_A_27"
+    },
+    "PB00": {
+      "alias": "USB_DET",
+      "function": "gpiob_00",
+      "instance": "GPIOB",
+      "peripheral": "GPIO",
+      "signal": "GPIO_B_00"
+    },
+    "PB01": {
+      "alias": "LED",
+      "function": "gpiob_01",
+      "instance": "GPIOB",
+      "peripheral": "GPIO",
+      "signal": "GPIO_B_01"
+    },
+    "PB02": {
+      "alias": "CP_LOG_TX",
+      "function": "uart1_txd",
+      "instance": "UART1",
+      "peripheral": "UART",
+      "signal": "TX"
+    },
+    "PB03": {
+      "alias": "POWER_EN",
+      "function": "gpiob_03",
+      "instance": "GPIOB",
+      "peripheral": "GPIO",
+      "signal": "GPIO_B_03"
+    },
+    "PB04": {
+      "alias": "POWER_KEY",
+      "function": "gpiob_04",
+      "instance": "GPIOB",
+      "peripheral": "GPIO",
+      "signal": "GPIO_B_04"
+    },
+    "PB05": {
+      "alias": "BAT_ADC",
+      "function": "adc_ch3",
+      "instance": "CH3",
+      "peripheral": "ADC",
+      "signal": "IN"
+    },
+    "PB06": {
+      "alias": "I2C0_SDA",
+      "function": "i2c0_sda",
+      "instance": "I2C0",
+      "peripheral": "I2C",
+      "signal": "SDA"
+    },
+    "PB07": {
+      "alias": "I2C0_SCL",
+      "function": "i2c0_scl",
+      "instance": "I2C0",
+      "peripheral": "I2C",
+      "signal": "SCL"
+    },
+    "PB08": {
+      "alias": "CHARGE_DET",
+      "function": "gpiob_08",
+      "instance": "GPIOB",
+      "peripheral": "GPIO",
+      "signal": "GPIO_B_08"
+    },
+    "PB09": {
+      "alias": "LCD_RST",
+      "function": "gpiob_09",
+      "instance": "GPIOB",
+      "peripheral": "GPIO",
+      "signal": "GPIO_B_09"
+    }
+  },
+  "peripheralConfig": {
+    "ADC": {
+      "CH0": { "IN": null },
+      "CH1": { "IN": null },
+      "CH2": { "IN": null },
+      "CH3": { "IN": "PB05" },
+      "CH4": { "IN": null },
+      "CH5": { "IN": null }
+    },
+    "CAPTURE": {
+      "CH0": { "IN": null },
+      "CH1": { "IN": null },
+      "CH2": { "IN": null },
+      "CH3": { "IN": null },
+      "CH4": { "IN": null },
+      "CH5": { "IN": null },
+      "CH6": { "IN": null },
+      "CH7": { "IN": null }
+    },
+    "DVP": {
+      "DVP": {
+        "VIC_H_SYNC": null,
+        "VIC_V_SYNC": null,
+        "VIC_PIXEL_CLK": null,
+        "VIC_CLK_OUT": null,
+        "VIC_PIXEL_DATA0": null,
+        "VIC_PIXEL_DATA1": null,
+        "VIC_PIXEL_DATA2": null,
+        "VIC_PIXEL_DATA3": null,
+        "VIC_PIXEL_DATA4": null,
+        "VIC_PIXEL_DATA5": null,
+        "VIC_PIXEL_DATA6": null,
+        "VIC_PIXEL_DATA7": null,
+        "VIC_PIXEL_DATA8": null,
+        "VIC_PIXEL_DATA9": null,
+        "VIC_PIXEL_DATA10": null,
+        "VIC_PIXEL_DATA11": null
+      }
+    },
+    "GPIO": {
+      "GPIOA": {
+        "GPIO_A_00": "PA00",
+        "GPIO_A_01": "PA01",
+        "GPIO_A_02": null,
+        "GPIO_A_03": null,
+        "GPIO_A_04": null,
+        "GPIO_A_05": null,
+        "GPIO_A_06": null,
+        "GPIO_A_07": null,
+        "GPIO_A_08": "PA08",
+        "GPIO_A_09": "PA09",
+        "GPIO_A_10": null,
+        "GPIO_A_11": null,
+        "GPIO_A_12": "PA12",
+        "GPIO_A_13": "PA13",
+        "GPIO_A_14": null,
+        "GPIO_A_15": null,
+        "GPIO_A_16": null,
+        "GPIO_A_17": null,
+        "GPIO_A_18": null,
+        "GPIO_A_19": null,
+        "GPIO_A_20": null,
+        "GPIO_A_21": null,
+        "GPIO_A_22": null,
+        "GPIO_A_23": "PA23",
+        "GPIO_A_24": null,
+        "GPIO_A_25": null,
+        "GPIO_A_26": null,
+        "GPIO_A_27": "PA27",
+        "GPIO_A_28": null,
+        "GPIO_A_29": null,
+        "GPIO_A_30": null,
+        "GPIO_A_31": null
+      },
+      "GPIOB": {
+        "GPIO_B_00": "PB00",
+        "GPIO_B_01": "PB01",
+        "GPIO_B_02": null,
+        "GPIO_B_03": "PB03",
+        "GPIO_B_04": "PB04",
+        "GPIO_B_05": null,
+        "GPIO_B_06": null,
+        "GPIO_B_07": null,
+        "GPIO_B_08": "PB08",
+        "GPIO_B_09": "PB09"
+      }
+    },
+    "I2C": {
+      "I2C0": {
+        "SCL": "PB07",
+        "SDA": "PB06"
+      },
+      "I2C1": {
+        "SCL": null,
+        "SDA": null
+      }
+    },
+    "I2S": {
+      "I2S0": {
+        "BCLK": null,
+        "LRCK": null,
+        "SDOUT": null,
+        "SDIN": null
+      },
+      "I2S1": {
+        "BCLK": null,
+        "LRCK": null,
+        "SDOUT": null,
+        "SDIN": null
+      }
+    },
+    "JTAG": {
+      "JTAG": {
+        "TCK": null,
+        "TMS": null,
+        "TDI": null,
+        "TDO": null
+      }
+    },
+    "PWM": {
+      "CH0": { "OUT": null },
+      "CH1": { "OUT": "PA21" },
+      "CH2": { "OUT": null },
+      "CH3": { "OUT": null },
+      "CH4": { "OUT": "PA04" },
+      "CH5": { "OUT": "PA05" },
+      "CH6": { "OUT": "PA06" },
+      "CH7": { "OUT": "PA07" }
+    },
+    "QSPI_LCD": {
+      "QSPI_LCD": {
+        "CS": null,
+        "CLK": null,
+        "IO0": null,
+        "IO1": null,
+        "IO2": null,
+        "IO3": null
+      }
+    },
+    "RGB": {
+      "RGB": {
+        "HSYNC": null,
+        "VSYNC": null,
+        "PCLK": null,
+        "DE": null
+      }
+    },
+    "SDIO": {
+      "SDIO": {
+        "CLK": null,
+        "CMD": null,
+        "DAT0": null,
+        "DAT1": null,
+        "DAT2": null,
+        "DAT3": null
+      }
+    },
+    "SPI": {
+      "SPI0": {
+        "CLK": "PA25",
+        "CS": "PA22",
+        "MISO": null,
+        "MOSI": "PA24",
+        "WP": null,
+        "HOLD": null
+      },
+      "SPI1": {
+        "CLK": null,
+        "CS": null,
+        "MISO": null,
+        "MOSI": null,
+        "WP": null,
+        "HOLD": null
+      },
+      "SPI2": {
+        "CLK": null,
+        "CS": null,
+        "MISO": null,
+        "MOSI": null,
+        "WP": null,
+        "HOLD": null
+      }
+    },
+    "UART": {
+      "UART0": {
+        "TX": "PA03",
+        "RX": "PA02",
+        "CTS": null,
+        "RTS": null
+      },
+      "UART1": {
+        "TX": "PB02",
+        "RX": null,
+        "CTS": null,
+        "RTS": null
+      },
+      "UART2": {
+        "TX": null,
+        "RX": null,
+        "CTS": null,
+        "RTS": null
+      }
+    }
+  },
+  "pin_notes": {
+    "PA08": "Default GPIOA_08 (function 1). board_ws2812_pinmux_pwm() selects PWM CH0 (function 12) at runtime.",
+    "PA12": "MPU interrupt GPIO replaces DVP pixel clock.",
+    "PA13": "Second TTP223 output GPIO replaces the default-board DVP data assignment.",
+    "PB06": "Shared MPU6050/PN532 I2C0 SDA.",
+    "PB07": "Shared MPU6050/PN532 I2C0 SCL."
+  }
+}

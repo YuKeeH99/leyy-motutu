@@ -1,0 +1,348 @@
+
+config ARCS_USE_LINGXIN_SDK
+    bool "Use Lingxin SDK defaults"
+    default n
+    select LS_CHAT
+    select SERVER_VOICE_LSCHAT
+    select LINGXIN_ENGINE_ENABLE
+    help
+        Enable the Lingxin voice link and the SDK options used by arcs-mini.
+        Leave disabled to use the default LSChat voice link.
+
+choice VOICE_LINK_CHOICE
+    prompt "Voice link selection"
+    default VOICE_LINK_LINGXIN if ARCS_USE_LINGXIN_SDK
+    default VOICE_LINK_LSCHAT
+    help
+        Select which cloud voice link is active at runtime. Code for other
+        links may still be compiled, but inactive links must not initialize,
+        subscribe events, create threads, or acquire audio/network resources.
+
+config VOICE_LINK_LSCHAT
+    bool "Use LSChat voice link"
+    select LS_CHAT
+    select SERVER_VOICE_LSCHAT
+
+config VOICE_LINK_LINGXIN
+    bool "Use Lingxin voice link"
+
+endchoice
+
+menu "Lingxin voice link configuration"
+
+config LINGXIN_CLOUD_HOST
+    string "Lingxin cloud host"
+    default "eagent.edu-aliyun.com"
+    help
+        Lingxin production cloud host. The SDK default is
+        eagent.edu-aliyun.com.
+
+config LINGXIN_CLOUD_PORT
+    int "Lingxin cloud port"
+    default 443
+
+config LINGXIN_APP_ID
+    string "Lingxin app id"
+    default ""
+
+config LINGXIN_LICENSE
+    string "Lingxin license"
+    default ""
+
+config LINGXIN_APP_CODE
+    string "Lingxin app or agent code"
+    default ""
+
+config LINGXIN_DEVICE_CODE
+    string "Lingxin device code"
+    default "LINSI_ARCS_MINI"
+
+config LINGXIN_SN
+    string "Lingxin device sn override"
+    default ""
+    help
+        Leave empty to use the current device id as Lingxin SN.
+
+config LINGXIN_LOCAL_VAD_UPLOAD_GATE
+    bool "Gate Lingxin audio upload with local amplitude VAD"
+    default n
+    depends on !LINGXIN_CLOUD_VAD_HALF_DUPLEX
+    help
+        Keep disabled to stream microphone audio directly to Lingxin cloud VAD.
+        Enabling this saves uplink data, but quiet speech below the local
+        amplitude threshold will never reach cloud ASR.
+
+config LINGXIN_CLOUD_VAD_HALF_DUPLEX
+    bool "Use Lingxin v2 Cloud VAD half-duplex protocol"
+    default n
+    help
+        Use /gw/ws/open/api/v2/agentChat. Start uploading only after
+        task_started and keep uploading until the server sends vad_end or
+        vad_exit. The client then sends end_audio, waits for the response,
+        sends end_task after task_stage_end, and completes on task_ended.
+        Local wake-word detection remains active during TTS and interrupts
+        the current task with terminate_task.
+
+config LINGXIN_CLOUD_VAD_MAX_SENTENCE_SILENCE_MS
+    int "Lingxin Cloud VAD sentence silence (ms)"
+    default 300
+    range 200 6000
+    depends on LINGXIN_CLOUD_VAD_HALF_DUPLEX
+    help
+        Value sent as max_sentence_silence in the v2 start_task payload.
+        Smaller values reduce end-of-speech latency but may cut pauses inside
+        a sentence. The official default is 300 ms.
+
+config LINGXIN_START_TASK_ACK_TIMEOUT_MS
+    int "Lingxin task_started timeout (ms)"
+    default 15000
+    range 5000 30000
+    depends on LINGXIN_ENGINE_ENABLE
+    help
+        Maximum wait after start_task for the server task_started event.
+        TLS connection reuse is normally fast, while a cold cloud session may
+        take several seconds. A short timeout causes the first wakeup to be
+        aborted even though the server later accepts the task.
+
+config LINGXIN_VERBOSE_LOG
+    bool "Enable verbose Lingxin SDK logging"
+    default n
+    depends on LINGXIN_ENGINE_ENABLE
+    help
+        Enable SDK debug formatting and output. Warnings and errors remain
+        enabled when this is off. Also enable platform INFO logging to see it.
+
+config LINGXIN_TRACE_HISTORY
+    bool "Keep Lingxin diagnostic trace history"
+    default n
+    depends on LINGXIN_ENGINE_ENABLE
+    help
+        Keep a 1 KB diagnostic history for the lingxin trace shell command.
+        Disable to avoid string copies inside critical sections during chat.
+
+config LINGXIN_DIALOG_TIMELINE_LOG
+    bool "Enable Lingxin dialog timeline serial log"
+    default y
+    depends on LINGXIN_ENGINE_ENABLE
+    help
+        Print compact [LX-HD] serial log lines for every important step from
+        local wakeup through WebSocket setup, start_task/task_started, audio
+        upload, Cloud VAD, end_audio, TTS playback, end_task/task_ended and
+        the next listening task.
+        Each line contains time since wakeup and time since the previous step.
+        Disable this option after manual latency debugging is complete.
+
+config NETWORK_DIALOG_TIMELINE_LOG
+    bool "Enable network/dialog correlation serial log"
+    default y
+    help
+        Print compact [NET-HD] serial log lines for Wi-Fi association, DHCP,
+        bearer selection, internet probes, WebSocket lifecycle and the network
+        prompt decision. Each line contains device uptime and the interval from
+        the preceding network event. Disable this option after field debugging.
+
+config NETWORK_WIFI_DISCONNECT_GRACE_MS
+    int "WiFi transient disconnect grace period (ms)"
+    default 2500
+    range 0 10000
+    help
+        Delay publishing a system network-disconnected event after the WiFi
+        driver reports link loss. Reassociation inside this window cancels the
+        event, avoiding disconnect/reconnect prompts for sub-second radio
+        glitches. Internet readiness is cleared immediately so new cloud work
+        still waits for DHCP and the network probe.
+
+config LINGXIN_ENGINE_ENABLE
+    bool "Build Lingxin SDK engine"
+    default y
+    help
+        Disable this for resource or isolation testing. The Lingxin link selection
+        and shell command remain compiled, but the third-party SDK engine and
+        adapters are not linked and Lingxin start returns an error.
+
+choice LINGXIN_ENGINE_PROFILE
+    prompt "Lingxin SDK engine build profile"
+    default LINGXIN_ENGINE_PROFILE_CHAT_CORE if ARCS_USE_LINGXIN_SDK
+    default LINGXIN_ENGINE_PROFILE_FULL
+    depends on LINGXIN_ENGINE_ENABLE
+
+config LINGXIN_ENGINE_PROFILE_BASIC
+    bool "Basic SDK utilities only"
+    help
+        Link only basic Lingxin utility, log, websocket helper sources and local
+        adapters. Chat APIs are intentionally disabled. Use this to isolate
+        whether the SDK foundation alone affects system stability.
+
+config LINGXIN_ENGINE_PROFILE_CHAT_CORE
+    bool "Chat core SDK engine"
+    help
+        Link the Lingxin voice chat core plus basic SDK utilities, but keep
+        schedule task, log upload, standalone ASR/TTS/LLM modules disabled.
+        Use this profile to isolate voice_chat startup and resource impact.
+
+config LINGXIN_ENGINE_PROFILE_FULL
+    bool "Full SDK engine"
+
+endchoice
+
+config LINGXIN_USER_TRACK_STUB
+    bool "Use Lingxin user track stub"
+    default y if ARCS_USE_LINGXIN_SDK
+    default n
+    depends on LINGXIN_ENGINE_ENABLE && LINGXIN_ENGINE_PROFILE_CHAT_CORE
+    help
+        Replace Lingxin's local user-track implementation with no-op stubs for
+        resource isolation. This is only for bring-up or debug builds.
+
+config LINGXIN_ENABLE_SCHEDULE_TASK
+    bool "Enable Lingxin schedule task"
+    default y
+    depends on LINGXIN_ENGINE_ENABLE && LINGXIN_ENGINE_PROFILE_FULL
+
+config LINGXIN_ENABLE_LOG_UPLOAD
+    bool "Enable Lingxin log upload"
+    default n
+    depends on LINGXIN_ENGINE_ENABLE && LINGXIN_ENGINE_PROFILE_FULL
+
+endmenu
+
+config SERVER_VOICE_LSCHAT
+    bool "Enable LSCHAT Voice Server"
+    default n
+
+if SERVER_VOICE_LSCHAT
+
+config MCP_TOOL_EMOJI_ENABLE
+    bool "Enable emoji tool"
+    default n
+
+config MCP_TOOL_CAMERA_ENABLE
+    bool "Enable camera tool"
+    default n
+
+config LSCHAT_WAKEUP_CLOUD_NOISE_GATE_THRESHOLD
+    int "Wakeup cloud audio noise gate threshold"
+    default 128
+    range 0 32767
+    help
+      Samples whose absolute amplitude is below this threshold are muted
+      before wakeup output audio is sent to cloud ASR.
+
+choice AUDIO_AEC_REFERENCE_MODE
+    prompt "AEC reference input source"
+    depends on BOARD_ARCS_MINI_V2_1
+    default AUDIO_AEC_REFERENCE_SOFTWARE
+    help
+      Select the reference signal fed to the ACOMP wake-up/AEC algorithm.
+      Software mode copies the completed playback PCM. Hardware mode samples
+      the analog speaker-feedback circuit on the ADC right channel.
+
+config AUDIO_AEC_REFERENCE_SOFTWARE
+    bool "Software playback PCM reference"
+    help
+      Feed MIC0 plus the playback PCM copy to ACOMP. The ADC right channel may
+      remain a second real microphone and can be used by the TDOA estimator.
+
+config AUDIO_AEC_REFERENCE_HARDWARE
+    bool "Analog hardware reference on ADC right channel"
+    help
+      Feed MIC0 plus the analog speaker-feedback signal sampled by ADC MIC1.
+      The right ADC channel is no longer a second microphone in this mode.
+
+endchoice
+
+config AUDIO_TDOA_ENABLE
+    bool "Enable raw stereo microphone TDOA localization"
+    default n
+    help
+      Estimate the inter-microphone delay from the synchronized raw MIC0 and
+      MIC1 ADC channels.  This diagnostic/localization path is independent of
+      whether the closed ACOMP wake-up model itself is single- or dual-mic.
+
+config AUDIO_TDOA_MIC_SPACING_TENTH_MM
+    int "TDOA acoustic-center spacing (0.1 mm)"
+    depends on AUDIO_TDOA_ENABLE
+    default 354
+    range 10 1500
+    help
+      Distance between the two microphone acoustic-port centers in tenths of
+      a millimetre.  For example, 35.4 mm is entered as 354.  The value is
+      used only to convert measured sample delay to an array-axis angle; raw
+      delay and MIC0/MIC1/CENTER classification remain available for tuning.
+
+config AUDIO_TDOA_MIN_MEAN_ABS
+    int "TDOA minimum combined mean absolute amplitude"
+    depends on AUDIO_TDOA_ENABLE
+    default 300
+    range 0 32767
+    help
+      Reject a raw stereo block when the mean absolute amplitude across both
+      microphone channels is below this value.
+
+config AUDIO_TDOA_MIN_PEAK
+    int "TDOA minimum peak amplitude"
+    depends on AUDIO_TDOA_ENABLE
+    default 1500
+    range 0 32767
+
+config AUDIO_TDOA_MIN_CORRELATION_MILLI
+    int "TDOA minimum normalized correlation (x1000)"
+    depends on AUDIO_TDOA_ENABLE
+    default 550
+    range 0 1000
+    help
+      Minimum absolute normalized short-lag correlation.  For example, 550
+      means 0.550.  Tune this above the measured enclosure noise correlation.
+
+config AUDIO_TDOA_MIN_ACTIVE_BLOCKS
+    int "TDOA minimum accepted blocks per report window"
+    depends on AUDIO_TDOA_ENABLE
+    default 4
+    range 1 63
+    help
+      Minimum number of amplitude- and correlation-qualified 16 ms blocks in
+      each 63-block report window.  Lowering this improves response to short
+      sounds but must be verified against an enclosure-silence baseline.
+
+config AUDIO_TDOA_LEVEL_DOMINANCE_MILLI
+    int "TDOA/ILD channel-level dominance threshold (x1000)"
+    depends on AUDIO_TDOA_ENABLE
+    default 0
+    range 0 1000
+    help
+      Optional inter-channel level-difference fusion threshold.  The level
+      balance is (MIC0-MIC1)/(MIC0+MIC1) multiplied by 1000.  Zero disables
+      fusion.  Use only after calibrating the physical microphone positions,
+      gains, enclosure and cabling on the target board.
+
+endif
+
+config AUDIO_DEFAULT_MIC_GAIN_A_DB
+    int "Default analog microphone gain (dB)"
+    default 0
+    range -12 36
+
+config AUDIO_DEFAULT_MIC_GAIN_D_DB
+    int "Default digital microphone gain (dB)"
+    default 0
+    range -83 42
+
+config AUDIO_DEFAULT_REF_GAIN_A_DB
+    int "Default analog reference gain (dB)"
+    default 0
+    range -12 36
+
+config AUDIO_DEFAULT_REF_GAIN_D_DB
+    int "Default digital reference gain (dB)"
+    default 0
+    range -83 42
+
+config AUDIO_DEFAULT_SPK_GAIN_A_DB
+    int "Default analog speaker gain (dB)"
+    default -6
+    range -24 6
+
+config AUDIO_DEFAULT_SPK_GAIN_D_DB
+    int "Default digital speaker gain (dB)"
+    default 0
+    range -113 30

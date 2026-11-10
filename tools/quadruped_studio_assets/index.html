@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>ARCS Motion Studio</title>
+  <link rel="stylesheet" href="/assets/studio.css">
+  <script src="/assets/imu-mounting.js" defer></script>
+  <script src="/assets/viewer-orientation.js" defer></script>
+  <script src="/assets/studio.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">跳到控制区</a>
+
+  <div class="app-shell">
+    <header class="command-bar" aria-label="设备与工程状态">
+      <div class="brand" aria-label="ARCS Motion Studio">
+        <span class="brand-mark" aria-hidden="true">
+          <i></i><i></i><i></i><i></i>
+        </span>
+        <span class="brand-copy">
+          <strong>ARCS</strong>
+          <small>MOTION STUDIO</small>
+        </span>
+      </div>
+
+      <div class="project-cluster">
+        <label class="field-label" for="projectName">工程</label>
+        <div class="project-name-wrap">
+          <input id="projectName" class="project-name" value="四足动作工程" maxlength="64"
+                 autocomplete="off" aria-describedby="projectSaveState">
+          <span id="projectSaveState" class="save-state" aria-live="polite">已保存</span>
+        </div>
+        <button id="importBtn" class="project-button" type="button" title="打开工程文件"
+                aria-label="打开工程">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M5 16v3h14v-3"/></svg>
+          <span>打开工程</span>
+        </button>
+        <button id="exportBtn" class="project-button" type="button" title="下载工程备份"
+                aria-label="下载备份">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m0 0 4 4m-4-4L8 8M5 17v3h14v-3"/></svg>
+          <span>下载备份</span>
+        </button>
+      </div>
+
+      <div class="device-cluster" aria-live="polite">
+        <span id="connectionDot" class="connection-dot" aria-hidden="true"></span>
+        <div class="device-copy">
+          <strong id="deviceName">等待设备</strong>
+          <span id="deviceMeta">ADB transport —</span>
+        </div>
+        <div class="telemetry-chip" title="最近一次命令往返延迟">
+          <span>LATENCY</span>
+          <b id="latencyValue">—</b>
+        </div>
+        <div class="telemetry-chip" title="上位机与固件状态">
+          <span>LINK</span>
+          <b id="linkValue">OFFLINE</b>
+        </div>
+      </div>
+
+      <button id="homeButton" class="home-button" type="button"
+              title="发送当前设备校准的 Home 姿态（500 ms 平滑）" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 11.5 12 5l8 6.5M6.5 10v9h11v-9M10 19v-5h4v5"/>
+        </svg>
+        <span><small>POSE</small><b>HOME</b></span>
+      </button>
+      <button id="armButton" class="arm-button" type="button" aria-pressed="false">
+        <span class="arm-indicator" aria-hidden="true"></span>
+        <span><small>OUTPUT</small><b id="armText">LOCKED</b></span>
+      </button>
+      <button id="estopButton" class="estop-button" type="button" title="Esc · 立即停止所有舵机输出">
+        <span class="estop-symbol" aria-hidden="true"></span>
+        <span><small>EMERGENCY</small><b>STOP</b></span>
+      </button>
+    </header>
+
+    <div id="connectionBanner" class="connection-banner" role="status">
+      <span class="spinner" aria-hidden="true"></span>
+      <span id="connectionMessage">正在连接运动控制器…</span>
+    </div>
+
+    <main id="workspace" class="workspace">
+      <section id="calibrationWizard" class="panel calibration-wizard" aria-labelledby="calibrationWizardTitle"
+               data-calibration-step="1">
+        <header class="calibration-wizard-header">
+          <div class="calibration-wizard-title">
+            <span class="eyebrow">GUIDED CALIBRATION</span>
+            <div>
+              <h1 id="calibrationWizardTitle">三步安全校准</h1>
+              <span id="calibrationWizardStatus" class="calibration-wizard-status pending" role="status" aria-live="polite">
+                <i aria-hidden="true"></i>待开始
+              </span>
+            </div>
+            <p>按机械零位 → 站立基准 → 机身水平的顺序完成；不要跳过舵机安全检查。</p>
+          </div>
+          <button id="calibrationExitBtn" class="calibration-exit-button" type="button" aria-label="稍后进行校准">
+            稍后进行
+          </button>
+        </header>
+
+        <div id="calibrationSafetyAlert" class="calibration-safety-alert" role="alert">
+          <span class="calibration-safety-icon" aria-hidden="true">!</span>
+          <div>
+            <strong>务必先架空机身，再开启舵机输出</strong>
+            <small>四条腿不得接触桌面；清空机械行程内的手指、线材与工具，保持急停随时可触达。</small>
+          </div>
+          <label class="calibration-safety-confirm" for="calibrationSafetyConfirm">
+            <input id="calibrationSafetyConfirm" type="checkbox">
+            <span aria-hidden="true"></span>
+            <b>已架空并清场</b>
+          </label>
+        </div>
+
+        <nav class="calibration-progress" aria-label="校准进度">
+          <ol id="calibrationProgress" role="tablist" aria-orientation="horizontal">
+            <li class="active" data-calibration-progress="1">
+              <button id="calibrationStep1Tab" type="button" role="tab" aria-selected="true"
+                      aria-controls="calibrationStep1Panel">
+                <span class="calibration-step-index">01</span>
+                <span><strong>舵机机械基准</strong><small>中位 · 方向 · 软限位</small></span>
+                <em id="calibrationStep1State" class="pending">进行中</em>
+              </button>
+            </li>
+            <li data-calibration-progress="2">
+              <button id="calibrationStep2Tab" type="button" role="tab" aria-selected="false"
+                      aria-controls="calibrationStep2Panel" tabindex="-1">
+                <span class="calibration-step-index">02</span>
+                <span><strong>Home / 站立姿态</strong><small>捕获并保存基准</small></span>
+                <em id="calibrationStep2State">未开始</em>
+              </button>
+            </li>
+            <li data-calibration-progress="3">
+              <button id="calibrationStep3Tab" type="button" role="tab" aria-selected="false"
+                      aria-controls="calibrationStep3Panel" tabindex="-1">
+                <span class="calibration-step-index">03</span>
+                <span><strong>IMU 水平基准</strong><small>静置 3 秒 · Roll / Pitch</small></span>
+                <em id="calibrationStep3State">未开始</em>
+              </button>
+            </li>
+          </ol>
+        </nav>
+
+        <div class="calibration-workbench">
+          <section id="calibrationStep1Panel" class="calibration-step-panel active" role="tabpanel"
+                   aria-labelledby="calibrationStep1Tab" tabindex="0">
+            <div class="calibration-step-copy">
+              <span class="calibration-step-kicker">STEP 01 · SERVO</span>
+              <h2>先对齐机械中位，再放宽行程</h2>
+              <p>逐路在架空状态下确认 1500 µs 机械中位、增大角度时的运动方向，然后缓慢找到不顶死的软限位。</p>
+              <div class="calibration-inline-warning">
+                <i aria-hidden="true"></i>
+                <span><strong>不要直接使用 500–2500 µs 电气极限</strong><small>若发生抖动、嗡鸣或机构顶死，立即按下急停。</small></span>
+              </div>
+              <div class="calibration-step-actions">
+                <button id="calibrationCenterAllBtn" class="primary-button" type="button">四路移至中位</button>
+                <button id="calibrationOpenLimitsBtn" class="secondary-button" type="button">打开软限位参数</button>
+              </div>
+            </div>
+
+            <div id="calibrationServoMatrix" class="calibration-servo-matrix" aria-label="四路舵机校准状态">
+              <div class="calibration-servo-head" aria-hidden="true">
+                <span>通道</span><span>中位</span><span>方向</span><span>软限位</span><span>状态</span>
+              </div>
+              <div id="calibrationServo0Row" class="calibration-servo-row" data-calibration-servo="0">
+                <strong><i style="--leg-color:var(--fl)"></i>FL<small>PA04</small></strong>
+                <span id="calibrationServo0Center">1500 µs</span><span id="calibrationServo0Direction">待确认</span>
+                <span id="calibrationServo0Limits">1000–2000</span><em id="calibrationServo0State">未验证</em>
+              </div>
+              <div id="calibrationServo1Row" class="calibration-servo-row" data-calibration-servo="1">
+                <strong><i style="--leg-color:var(--fr)"></i>FR<small>PA05</small></strong>
+                <span id="calibrationServo1Center">1500 µs</span><span id="calibrationServo1Direction">待确认</span>
+                <span id="calibrationServo1Limits">1000–2000</span><em id="calibrationServo1State">未验证</em>
+              </div>
+              <div id="calibrationServo2Row" class="calibration-servo-row" data-calibration-servo="2">
+                <strong><i style="--leg-color:var(--rr)"></i>RR<small>PA06</small></strong>
+                <span id="calibrationServo2Center">1500 µs</span><span id="calibrationServo2Direction">待确认</span>
+                <span id="calibrationServo2Limits">1000–2000</span><em id="calibrationServo2State">未验证</em>
+              </div>
+              <div id="calibrationServo3Row" class="calibration-servo-row" data-calibration-servo="3">
+                <strong><i style="--leg-color:var(--rl)"></i>RL<small>PA07</small></strong>
+                <span id="calibrationServo3Center">1500 µs</span><span id="calibrationServo3Direction">待确认</span>
+                <span id="calibrationServo3Limits">1000–2000</span><em id="calibrationServo3State">未验证</em>
+              </div>
+            </div>
+          </section>
+
+          <section id="calibrationStep2Panel" class="calibration-step-panel" role="tabpanel"
+                   aria-labelledby="calibrationStep2Tab" tabindex="0" hidden>
+            <div class="calibration-step-copy">
+              <span class="calibration-step-kicker">STEP 02 · HOME POSE</span>
+              <h2>将当前姿态保存为 Home / 站立基准</h2>
+              <p>调整四条腿至稳定、对称的站立姿态。保存后，回中、动作编排与启动恢复均可使用该基准。</p>
+              <div class="calibration-step-actions">
+                <button id="calibrationCaptureHomeBtn" class="primary-button" type="button">捕获当前站立姿态</button>
+                <button id="calibrationPreviewHomeBtn" class="secondary-button" type="button">安全预览 Home</button>
+              </div>
+            </div>
+            <div class="calibration-home-card">
+              <header><span>HOME SNAPSHOT</span><em id="calibrationHomeState">未捕获</em></header>
+              <div id="calibrationHomeAngles" class="calibration-home-angles" aria-label="Home 姿态四路角度">
+                <span><small>FL</small><strong>—°</strong></span><span><small>FR</small><strong>—°</strong></span>
+                <span><small>RR</small><strong>—°</strong></span><span><small>RL</small><strong>—°</strong></span>
+              </div>
+              <div class="calibration-readiness">
+                <span><i></i><b>四路均在软限位内</b><em id="calibrationHomeLimitsQuality">待检查</em></span>
+                <span><i></i><b>左右对称偏差</b><em id="calibrationHomeSymmetryQuality">—°</em></span>
+                <span><i></i><b>姿态稳定时间</b><em id="calibrationHomeStableQuality">— s</em></span>
+              </div>
+            </div>
+          </section>
+
+          <section id="calibrationStep3Panel" class="calibration-step-panel" role="tabpanel"
+                   aria-labelledby="calibrationStep3Tab" tabindex="0" hidden>
+            <div class="calibration-step-copy">
+              <span class="calibration-step-kicker">STEP 03 · IMU LEVEL</span>
+              <h2>水平放置机身，连续静置 3 秒</h2>
+              <p>本步只标定 Roll / Pitch 水平偏置。保持桌面稳固，校准期间不要触碰机身或线缆。</p>
+              <div class="calibration-step-actions">
+                <button id="calibrationImuStartBtn" class="primary-button" type="button">开始 3 秒水平标定</button>
+              </div>
+              <div class="calibration-yaw-note">
+                <span><strong>Yaw 不属于水平标定</strong><small>航向受漂移影响，请在每次运动会话开始时单独归零。</small></span>
+                <button id="calibrationYawZeroBtn" class="secondary-button" type="button">Yaw 会话归零</button>
+              </div>
+            </div>
+
+            <div class="calibration-imu-stage">
+              <div class="calibration-countdown" aria-live="polite" aria-atomic="true">
+                <span id="calibrationCountdownLabel">等待开始</span>
+                <output id="calibrationCountdown">3.0</output>
+                <small>SECONDS STILL</small>
+              </div>
+              <div id="calibrationQualityMetrics" class="calibration-quality-metrics" aria-label="IMU 校准质量指标">
+                <span><small>静止程度</small><strong id="calibrationStationaryMetric">—</strong><i><b style="width:0%"></b></i></span>
+                <span><small>振动噪声</small><strong id="calibrationVibrationMetric">— mg</strong><i><b style="width:0%"></b></i></span>
+                <span><small>角速率峰值</small><strong id="calibrationGyroMetric">— °/s</strong><i><b style="width:0%"></b></i></span>
+                <span><small>有效采样</small><strong id="calibrationSampleMetric">0 / ≥7</strong><i><b style="width:0%"></b></i></span>
+                <span><small>采样时间跨度</small><strong id="calibrationSpanMetric">— / 3.0 s</strong><i><b style="width:0%"></b></i></span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <footer class="calibration-wizard-footer">
+          <span id="calibrationStepHint" role="status" aria-live="polite">
+            <i aria-hidden="true"></i>完成 4 路中位、方向和软限位验证后继续。
+          </span>
+          <div>
+            <button id="calibrationBackBtn" class="secondary-button" type="button" disabled>上一步</button>
+            <button id="calibrationNextBtn" class="primary-button" type="button" disabled>继续：保存 Home</button>
+          </div>
+        </footer>
+      </section>
+
+      <section class="panel pose-panel" aria-labelledby="poseTitle">
+        <header class="panel-header">
+          <div>
+            <span class="eyebrow">LIVE CONTROL</span>
+            <h1 id="poseTitle">四足姿态</h1>
+          </div>
+          <div class="panel-tools">
+            <div class="segmented" role="group" aria-label="姿态预设">
+              <button type="button" data-pose-preset="center">中位</button>
+              <button id="safeStandBtn" type="button" data-safe-posture="stand">同步起身</button>
+              <button id="safeProneBtn" type="button" data-safe-posture="prone">同步趴下</button>
+            </div>
+            <span id="poseAck" class="ack-badge pending">目标待下发</span>
+          </div>
+        </header>
+
+        <div class="pose-stage">
+          <div id="dogViewerMount" class="dog-viewer-mount" aria-label="四足机器人三维姿态预览">
+            <div id="dogViewerFallback" class="dog-silhouette" aria-hidden="true">
+              <span class="dog-head"></span>
+              <span class="dog-body"></span>
+              <span class="dog-tail"></span>
+              <button class="joint-node fl" type="button" tabindex="-1" data-focus-leg="0"><b>FL</b><small id="diagramAngle0">90°</small></button>
+              <button class="joint-node fr" type="button" tabindex="-1" data-focus-leg="1"><b>FR</b><small id="diagramAngle1">90°</small></button>
+              <button class="joint-node rr" type="button" tabindex="-1" data-focus-leg="2"><b>RR</b><small id="diagramAngle2">90°</small></button>
+              <button class="joint-node rl" type="button" tabindex="-1" data-focus-leg="3"><b>RL</b><small id="diagramAngle3">90°</small></button>
+            </div>
+          </div>
+          <div class="stage-readout">
+            <div class="target-readout">
+              <span>目标姿态 · 舵机命令</span>
+              <strong id="poseSummary">90° · 90° · 90° · 90°</strong>
+              <small>普通 PWM 舵机无位置回读；绿色确认仅代表命令已被固件接收。</small>
+              <p class="model-credit">3D 模型：<a href="https://sketchfab.com/3d-models/robot-dog-unitree-go1-926627f69b194b6da4fbf8a31df49303" target="_blank" rel="noopener noreferrer">Robot dog Unitree Go1 · C. Yamahata</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="license noopener noreferrer">CC BY 4.0</a></p>
+            </div>
+
+            <section class="imu-readout offline" aria-labelledby="imuReadoutTitle">
+              <header class="imu-readout-header">
+                <span>
+                  <strong id="imuReadoutTitle">实机姿态 · IMU</strong>
+                  <small id="imuFreshness">无数据 · 已过期</small>
+                </span>
+                <span id="imuStatus" class="imu-status offline" role="status" aria-live="polite">
+                  <i aria-hidden="true"></i>IMU 未连接
+                </span>
+              </header>
+
+              <div class="imu-attitude-grid" aria-label="IMU 机身姿态角">
+                <div><span>ROLL</span><output id="imuRoll">—°</output><small>横滚</small></div>
+                <div><span>PITCH</span><output id="imuPitch">—°</output><small>俯仰</small></div>
+                <div><span>YAW</span><output id="imuYaw">—°</output><small>航向</small></div>
+              </div>
+
+              <div class="imu-motion-row">
+                <span><b>传感器加速度 RAW XYZ</b><output id="imuAccel">— / — / — g</output></span>
+                <span><b>传感器角速度 RAW XYZ</b><output id="imuGyro">— / — / — °/s</output></span>
+              </div>
+
+              <div class="imu-controls" aria-label="IMU 姿态基准与安全设置">
+                <label class="imu-yaw-follow-control" for="imuYawFollowToggle">
+                  <span>
+                    <strong>3D 航向跟随</strong>
+                    <small id="imuYawFollowState">关闭（推荐）· 只跟随 Roll / Pitch，避免无磁力计航向漂移</small>
+                  </span>
+                  <input id="imuYawFollowToggle" type="checkbox" class="switch-input"
+                         aria-describedby="imuYawFollowState">
+                  <i class="switch" aria-hidden="true"></i>
+                </label>
+                <button id="imuZeroBtn" class="imu-zero-button" type="button" disabled>Yaw 会话归零</button>
+                <label class="imu-safety-control" for="imuSafetyToggle">
+                  <input id="imuSafetyToggle" type="checkbox" class="switch-input" disabled>
+                  <i class="switch" aria-hidden="true"></i>
+                  <span>倾斜超限保护</span>
+                </label>
+                <label class="imu-limit-control" for="imuTiltLimit">
+                  <span>阈值</span>
+                  <span><input id="imuTiltLimit" type="number" min="5" max="85" step="1" value="35" disabled><em>°</em></span>
+                </label>
+              </div>
+
+              <p class="imu-disclaimer">Roll / Pitch / Yaw 已按当前板型的固定安装方向转为机身坐标；RAW XYZ 保留 MPU6050 传感器坐标，便于追溯。IMU 不代表舵机、关节或足端位置回读；数据过期时不参与安全判断。</p>
+            </section>
+          </div>
+        </div>
+
+        <div class="servo-grid" aria-label="四路舵机控制">
+          <article class="servo-card" data-leg-card="0">
+            <header>
+              <span class="leg-index">01</span>
+              <span><strong>FL</strong><small>前左 · PA04</small></span>
+              <button class="mini-button center-leg" type="button" data-leg="0">归中</button>
+            </header>
+            <div class="servo-control">
+              <div class="range-column">
+                <span>180°</span>
+                <input id="leg0Range" class="servo-range" type="range" min="0" max="180" step="1" value="90"
+                       aria-label="前左腿目标角度">
+                <span>0°</span>
+              </div>
+              <div class="servo-values">
+                <div><span>目标角度</span><strong id="leg0Angle">90°</strong></div>
+                <div><span>PWM 脉宽</span><strong id="leg0Pulse">1500 µs</strong></div>
+                <label class="switch-row" for="leg0Reverse">
+                  <span>反向</span>
+                  <input id="leg0Reverse" type="checkbox" class="switch-input" aria-label="反向前左腿">
+                  <i class="switch" aria-hidden="true"></i>
+                </label>
+                <label class="trim-field" for="leg0Trim"><span>Trim</span><input id="leg0Trim" type="number" min="-30" max="30" step="1" value="0"><em>°</em></label>
+              </div>
+            </div>
+          </article>
+
+          <article class="servo-card" data-leg-card="1">
+            <header>
+              <span class="leg-index">02</span>
+              <span><strong>FR</strong><small>前右 · PA05</small></span>
+              <button class="mini-button center-leg" type="button" data-leg="1">归中</button>
+            </header>
+            <div class="servo-control">
+              <div class="range-column">
+                <span>180°</span>
+                <input id="leg1Range" class="servo-range" type="range" min="0" max="180" step="1" value="90"
+                       aria-label="前右腿目标角度">
+                <span>0°</span>
+              </div>
+              <div class="servo-values">
+                <div><span>目标角度</span><strong id="leg1Angle">90°</strong></div>
+                <div><span>PWM 脉宽</span><strong id="leg1Pulse">1500 µs</strong></div>
+                <label class="switch-row" for="leg1Reverse">
+                  <span>反向</span>
+                  <input id="leg1Reverse" type="checkbox" class="switch-input" aria-label="反向前右腿">
+                  <i class="switch" aria-hidden="true"></i>
+                </label>
+                <label class="trim-field" for="leg1Trim"><span>Trim</span><input id="leg1Trim" type="number" min="-30" max="30" step="1" value="0"><em>°</em></label>
+              </div>
+            </div>
+          </article>
+
+          <article class="servo-card" data-leg-card="2">
+            <header>
+              <span class="leg-index">03</span>
+              <span><strong>RR</strong><small>后右 · PA06</small></span>
+              <button class="mini-button center-leg" type="button" data-leg="2">归中</button>
+            </header>
+            <div class="servo-control">
+              <div class="range-column">
+                <span>180°</span>
+                <input id="leg2Range" class="servo-range" type="range" min="0" max="180" step="1" value="90"
+                       aria-label="后右腿目标角度">
+                <span>0°</span>
+              </div>
+              <div class="servo-values">
+                <div><span>目标角度</span><strong id="leg2Angle">90°</strong></div>
+                <div><span>PWM 脉宽</span><strong id="leg2Pulse">1500 µs</strong></div>
+                <label class="switch-row" for="leg2Reverse">
+                  <span>反向</span>
+                  <input id="leg2Reverse" type="checkbox" class="switch-input" aria-label="反向后右腿">
+                  <i class="switch" aria-hidden="true"></i>
+                </label>
+                <label class="trim-field" for="leg2Trim"><span>Trim</span><input id="leg2Trim" type="number" min="-30" max="30" step="1" value="0"><em>°</em></label>
+              </div>
+            </div>
+          </article>
+
+          <article class="servo-card" data-leg-card="3">
+            <header>
+              <span class="leg-index">04</span>
+              <span><strong>RL</strong><small>后左 · PA07</small></span>
+              <button class="mini-button center-leg" type="button" data-leg="3">归中</button>
+            </header>
+            <div class="servo-control">
+              <div class="range-column">
+                <span>180°</span>
+                <input id="leg3Range" class="servo-range" type="range" min="0" max="180" step="1" value="90"
+                       aria-label="后左腿目标角度">
+                <span>0°</span>
+              </div>
+              <div class="servo-values">
+                <div><span>目标角度</span><strong id="leg3Angle">90°</strong></div>
+                <div><span>PWM 脉宽</span><strong id="leg3Pulse">1500 µs</strong></div>
+                <label class="switch-row" for="leg3Reverse">
+                  <span>反向</span>
+                  <input id="leg3Reverse" type="checkbox" class="switch-input" aria-label="反向后左腿">
+                  <i class="switch" aria-hidden="true"></i>
+                </label>
+                <label class="trim-field" for="leg3Trim"><span>Trim</span><input id="leg3Trim" type="number" min="-30" max="30" step="1" value="0"><em>°</em></label>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <aside class="inspector-stack" aria-label="动作参数与灯光">
+        <section class="panel inspector-panel" aria-labelledby="motionTitle">
+          <header class="panel-header compact">
+            <div><span class="eyebrow">MOTION</span><h2 id="motionTitle">运动参数</h2></div>
+            <span class="status-light"><i></i>20 ms scheduler</span>
+          </header>
+
+          <div class="parameter-block">
+            <div class="parameter-head">
+              <label for="transitionRange">过渡时长</label>
+              <div class="number-unit"><input id="transitionInput" type="number" min="40" max="10000" step="20" value="600"><span>ms</span></div>
+            </div>
+            <input id="transitionRange" class="wide-range" type="range" min="40" max="5000" step="20" value="600">
+            <p>用于姿态按钮和关键帧；直接拖动腿部滑条固定为 40 ms Linear 跟手控制。</p>
+          </div>
+
+          <div class="parameter-block">
+            <div class="parameter-head">
+              <label for="speedRange">全局速度</label>
+              <output id="speedValue" for="speedRange">1.00×</output>
+            </div>
+            <input id="speedRange" class="wide-range" type="range" min="25" max="200" step="5" value="100">
+            <div class="range-scale"><span>0.25×</span><span>1.00×</span><span>2.00×</span></div>
+          </div>
+
+          <label class="select-field" for="easingSelect">
+            <span>缓动曲线</span>
+            <select id="easingSelect">
+              <option value="linear">Linear · 匀速</option>
+              <option value="ease-in-out" selected>Ease In Out · 平顺</option>
+              <option value="ease-in">Ease In · 柔和起步</option>
+              <option value="ease-out">Ease Out · 柔和停靠</option>
+              <option value="step">Step · 立即到位</option>
+            </select>
+          </label>
+
+          <label class="check-row" for="linkedEdit">
+            <span><strong>镜像联动</strong><small>调整一侧时同步另一侧</small></span>
+            <input id="linkedEdit" type="checkbox" class="switch-input">
+            <i class="switch" aria-hidden="true"></i>
+          </label>
+
+          <details class="calibration-panel">
+            <summary>
+              <span><strong>舵机安全校准</strong><small>每路最小 / 中位 / 最大脉宽</small></span>
+              <i aria-hidden="true"></i>
+            </summary>
+            <p>首次联调使用保守的 1000–2000 µs。确认机械行程后再逐步放宽，不要直接使用电气极限。</p>
+            <div class="calibration-grid">
+              <div class="calibration-head"><span>通道</span><span>MIN</span><span>CENTER</span><span>MAX</span></div>
+              <label><b>FL</b><input id="cal0Min" type="number" min="500" max="2498" step="10" value="1000"><input id="cal0Center" type="number" min="501" max="2499" step="10" value="1500"><input id="cal0Max" type="number" min="502" max="2500" step="10" value="2000"></label>
+              <label><b>FR</b><input id="cal1Min" type="number" min="500" max="2498" step="10" value="1000"><input id="cal1Center" type="number" min="501" max="2499" step="10" value="1500"><input id="cal1Max" type="number" min="502" max="2500" step="10" value="2000"></label>
+              <label><b>RR</b><input id="cal2Min" type="number" min="500" max="2498" step="10" value="1000"><input id="cal2Center" type="number" min="501" max="2499" step="10" value="1500"><input id="cal2Max" type="number" min="502" max="2500" step="10" value="2000"></label>
+              <label><b>RL</b><input id="cal3Min" type="number" min="500" max="2498" step="10" value="1000"><input id="cal3Center" type="number" min="501" max="2499" step="10" value="1500"><input id="cal3Max" type="number" min="502" max="2500" step="10" value="2000"></label>
+            </div>
+            <button id="resetCalibrationBtn" class="secondary-button calibration-reset" type="button">恢复保守校准</button>
+          </details>
+        </section>
+
+        <section class="panel inspector-panel light-panel" aria-labelledby="lightTitle">
+          <header class="panel-header compact">
+            <div><span class="eyebrow">LIGHTING</span><h2 id="lightTitle">灯光编排</h2></div>
+            <label class="power-switch" for="lightEnabled">
+              <span id="lightPowerText">OFF</span>
+              <input id="lightEnabled" type="checkbox" class="switch-input" aria-label="灯光总开关">
+              <i class="switch" aria-hidden="true"></i>
+            </label>
+          </header>
+
+          <div id="lightPreview" class="light-preview" aria-label="灯光预览">
+            <div id="lightPixels" class="light-pixels" aria-hidden="true"></div>
+            <span id="lightPreviewLabel">#35A7FF · 40% · 8 PIXELS</span>
+          </div>
+
+          <div class="color-row">
+            <label class="color-well" for="lightColor">
+              <input id="lightColor" type="color" value="#35a7ff">
+              <span id="colorSwatch" aria-hidden="true"></span>
+            </label>
+            <label class="text-field" for="lightHex"><span>颜色</span><input id="lightHex" value="#35A7FF" maxlength="7" spellcheck="false"></label>
+            <label class="text-field compact-number" for="pixelCount"><span>灯珠</span><input id="pixelCount" type="number" min="1" max="64" step="1" value="8"></label>
+          </div>
+
+          <div class="parameter-block no-border">
+            <div class="parameter-head">
+              <label for="brightnessRange">亮度</label>
+              <output id="brightnessValue" for="brightnessRange">40%</output>
+            </div>
+            <input id="brightnessRange" class="wide-range" type="range" min="0" max="100" step="1" value="40">
+          </div>
+
+          <div class="preset-grid" aria-label="灯光预设">
+            <button type="button" data-light-preset="#35A7FF" data-brightness="40"><i style="--preset:#35A7FF"></i>冰蓝</button>
+            <button type="button" data-light-preset="#FFB347" data-brightness="34"><i style="--preset:#FFB347"></i>暖金</button>
+            <button type="button" data-light-preset="#8B5CF6" data-brightness="38"><i style="--preset:#8B5CF6"></i>极光</button>
+            <button type="button" data-light-preset="#FF405C" data-brightness="32"><i style="--preset:#FF405C"></i>警戒</button>
+          </div>
+          <p class="pixel-count-hint">V2.1 默认按 8 颗灯板发送。若页面与设备均为 8、实物仍只亮首颗，请检查首颗 DO → 第二颗 DIN、级联方向及后续供电。</p>
+
+          <details id="ledCalibrationPanel" class="led-calibration-panel">
+            <summary>
+              <span class="led-calibration-heading">
+                <i aria-hidden="true"></i>
+                <span><strong>灯板校色</strong><small>当前设备 · 输出级校正</small></span>
+              </span>
+              <span id="ledCalibrationStatus" class="led-calibration-status is-loading">读取中</span>
+            </summary>
+
+            <div class="led-calibration-body">
+              <div id="ledCalibrationNotice" class="led-calibration-notice" role="status" aria-live="polite">
+                正在读取当前灯板的颜色校准记录…
+              </div>
+              <div id="ledCalibrationIdentity" class="led-calibration-identity">DEVICE —</div>
+
+              <label class="led-order-field" for="ledColorOrder">
+                <span><b>物理色序</b><small>选择灯珠实际的通道顺序</small></span>
+                <select id="ledColorOrder" disabled>
+                  <option value="GRB">GRB · WS2812 标准</option>
+                  <option value="RGB">RGB</option>
+                  <option value="RBG">RBG</option>
+                  <option value="GBR">GBR</option>
+                  <option value="BRG">BRG</option>
+                  <option value="BGR">BGR</option>
+                </select>
+              </label>
+
+              <div class="led-gain-stack" aria-label="RGB 通道增益">
+                <div class="led-gain-row channel-r">
+                  <label for="ledRGainRange"><i aria-hidden="true"></i><b>RED</b></label>
+                  <input id="ledRGainRange" type="range" min="0" max="1000" step="5" value="1000" disabled>
+                  <label class="led-gain-number" for="ledRGainNumber"><input id="ledRGainNumber" type="number" min="0" max="100" step="0.5" value="100" disabled><span>%</span></label>
+                </div>
+                <div class="led-gain-row channel-g">
+                  <label for="ledGGainRange"><i aria-hidden="true"></i><b>GREEN</b></label>
+                  <input id="ledGGainRange" type="range" min="0" max="1000" step="5" value="1000" disabled>
+                  <label class="led-gain-number" for="ledGGainNumber"><input id="ledGGainNumber" type="number" min="0" max="100" step="0.5" value="100" disabled><span>%</span></label>
+                </div>
+                <div class="led-gain-row channel-b">
+                  <label for="ledBGainRange"><i aria-hidden="true"></i><b>BLUE</b></label>
+                  <input id="ledBGainRange" type="range" min="0" max="1000" step="5" value="1000" disabled>
+                  <label class="led-gain-number" for="ledBGainNumber"><input id="ledBGainNumber" type="number" min="0" max="100" step="0.5" value="100" disabled><span>%</span></label>
+                </div>
+                <div class="led-gain-row gamma-row">
+                  <label for="ledGammaRange"><i aria-hidden="true">γ</i><b>GAMMA</b></label>
+                  <input id="ledGammaRange" type="range" min="100" max="300" step="1" value="100" disabled>
+                  <label class="led-gain-number gamma-number" for="ledGammaNumber"><input id="ledGammaNumber" type="number" min="1" max="3" step="0.01" value="1.00" disabled><span>×</span></label>
+                </div>
+              </div>
+
+              <div class="led-calibration-presets" aria-label="校色起点">
+                <button id="ledCalibrationBypassPreset" type="button" disabled>
+                  <b>旁路默认</b><small>GRB · 100 / 100 / 100% · γ1.00</small>
+                </button>
+                <button id="ledCalibrationTypicalPreset" type="button" disabled>
+                  <b>典型灯珠起点</b><small>GRB · 100 / 80 / 31% · γ2.20</small>
+                </button>
+              </div>
+              <p class="led-calibration-footnote">“典型灯珠起点”仅依 WS2812B datasheet 典型白点估算，不代表实物批次值，仍需肉眼微调。增益允许 0%，日常校色建议不低于 15%。</p>
+
+              <div class="led-primary-test">
+                <div class="led-section-label"><span>三原色安全测试</span><small>5% 低亮 · 每次只发送一次</small></div>
+                <div class="led-primary-buttons">
+                  <button class="primary-r" type="button" data-led-primary="#FF0000" data-led-primary-name="红色" disabled><i></i>纯红</button>
+                  <button class="primary-g" type="button" data-led-primary="#00FF00" data-led-primary-name="绿色" disabled><i></i>纯绿</button>
+                  <button class="primary-b" type="button" data-led-primary="#0000FF" data-led-primary-name="蓝色" disabled><i></i>纯蓝</button>
+                </div>
+                <button id="ledCalibrationRestoreBtn" class="led-restore-button" type="button" disabled>恢复当前编排灯色</button>
+              </div>
+
+              <div class="led-calibration-actions">
+                <button id="ledCalibrationResetBtn" class="secondary-button" type="button" disabled>重置设备校色</button>
+                <button id="ledCalibrationSaveBtn" class="primary-button" type="button" disabled>保存校色</button>
+              </div>
+              <p class="led-logical-note">动作关键帧始终保存逻辑 <code>#RRGGBB</code>；本区只修正当前设备的物理输出。</p>
+            </div>
+          </details>
+        </section>
+      </aside>
+
+      <section class="panel timeline-panel" aria-labelledby="timelineTitle">
+        <header class="timeline-toolbar">
+          <div class="timeline-title">
+            <span class="eyebrow">SEQUENCE</span>
+            <h2 id="timelineTitle">动作时间线</h2>
+          </div>
+
+          <div class="action-picker">
+            <label for="actionSelect">当前动作</label>
+            <select id="actionSelect" aria-label="当前动作"></select>
+            <button id="newActionBtn" class="new-action-button" type="button" title="新建或生成动作">＋ 新建动作</button>
+            <button id="renameActionBtn" class="icon-button" type="button" title="重命名动作" aria-label="重命名动作">✎</button>
+            <button id="deleteActionBtn" class="icon-button danger-ghost" type="button" title="删除动作" aria-label="删除动作">×</button>
+          </div>
+
+          <div class="transport-controls" role="group" aria-label="预览与真机播放">
+            <span class="preview-control">
+              <button id="previewBtn" class="preview-button" type="button" aria-pressed="false">
+                <i aria-hidden="true">▶</i><span id="previewBtnText">3D 安全预览</span>
+              </button>
+              <small id="previewStatus">预览不会驱动真机</small>
+            </span>
+            <i class="transport-divider" aria-hidden="true"></i>
+            <button id="previousFrameBtn" class="transport-icon" type="button" title="上一个关键帧" aria-label="上一个关键帧">|◀</button>
+            <button id="playBtn" class="transport-icon play" type="button" title="Space · 真机播放（需要解锁）" aria-label="真机播放">▶</button>
+            <button id="pauseBtn" class="transport-icon" type="button" title="暂停真机动作" aria-label="暂停真机动作">Ⅱ</button>
+            <button id="stopBtn" class="transport-icon" type="button" title="停止真机动作" aria-label="停止真机动作">■</button>
+            <button id="nextFrameBtn" class="transport-icon" type="button" title="下一个关键帧" aria-label="下一个关键帧">▶|</button>
+          </div>
+
+          <div class="play-options">
+            <label class="compact-check" for="loopToggle"><input id="loopToggle" type="checkbox">循环</label>
+            <label for="playbackSpeed">倍速</label>
+            <select id="playbackSpeed">
+              <option value="0.25">0.25×</option>
+              <option value="0.5">0.50×</option>
+              <option value="0.75">0.75×</option>
+              <option value="1" selected>1.00×</option>
+              <option value="1.25">1.25×</option>
+              <option value="1.5">1.50×</option>
+              <option value="2">2.00×</option>
+            </select>
+            <button id="shortcutBtn" class="icon-button" type="button" title="键盘快捷键" aria-label="键盘快捷键">?</button>
+          </div>
+        </header>
+
+        <section id="recordWorkflow" class="record-workflow" aria-labelledby="recordWorkflowTitle">
+          <div class="record-workflow-status">
+            <span class="record-live-dot" aria-hidden="true"></span>
+            <div>
+              <strong id="recordWorkflowTitle">动作录制</strong>
+              <small id="recordingInfo" role="status" aria-live="polite">尚未开始录制</small>
+            </div>
+          </div>
+          <label class="record-step" for="recordNameInput">
+            <b>1</b><span>命名动作</span>
+            <input id="recordNameInput" type="text" value="我的动作" maxlength="40" autocomplete="off" placeholder="例如：慢走一圈">
+          </label>
+          <div class="record-step">
+            <b>2</b><span>开始录制</span>
+            <button id="recordStartBtn" class="record-start-button" type="button" title="R · 开始录制"><i aria-hidden="true"></i>开始录制</button>
+          </div>
+          <div class="record-step">
+            <b>3</b><span>停止并保存</span>
+            <button id="recordStopBtn" class="record-stop-button" type="button" disabled>停止并保存</button>
+          </div>
+          <p>自动保存到本机，下载 JSON 用于备份 / 换电脑。</p>
+        </section>
+
+        <div class="keyframe-toolbar">
+          <div class="keyframe-actions">
+            <button id="updateKeyframeBtn" class="primary-button" type="button" disabled>更新当前姿态</button>
+            <button id="addKeyframeBtn" type="button">＋ 另存为新姿态</button>
+            <button id="duplicateKeyframeBtn" type="button" disabled>复制</button>
+            <button id="deleteKeyframeBtn" class="danger-text" type="button" disabled>删除</button>
+          </div>
+          <div class="keyframe-test-actions" role="group" aria-label="真机逐帧测试">
+            <span><b>真机单步</b><small>强制慢速 ≥ 1 秒</small></span>
+            <button id="testPreviousFrameBtn" type="button" disabled>← 试上一帧</button>
+            <button id="testSelectedFrameBtn" class="frame-test-primary" type="button" disabled>试当前帧</button>
+            <button id="testNextFrameBtn" type="button" disabled>试下一帧 →</button>
+          </div>
+          <div id="keyframeInspector" class="keyframe-inspector" aria-live="polite">
+            <span>未选择关键帧</span>
+            <label for="keyframeTime">时间 <input id="keyframeTime" type="number" min="0" step="20" value="0" disabled> ms</label>
+            <label for="keyframeDuration">过渡 <input id="keyframeDuration" type="number" min="0" max="10000" step="20" value="600" disabled> ms</label>
+            <label for="keyframeEasing">缓动
+              <select id="keyframeEasing" disabled>
+                <option value="linear">Linear</option>
+                <option value="ease-in-out">Ease In Out</option>
+                <option value="ease-in">Ease In</option>
+                <option value="ease-out">Ease Out</option>
+                <option value="step">Step</option>
+              </select>
+            </label>
+          </div>
+          <div class="timecode" aria-label="当前时间">
+            <span id="timeCurrent">00:00.000</span><i>/</i><span id="timeTotal">00:04.000</span>
+          </div>
+        </div>
+
+        <div id="timelineViewport" class="timeline-viewport">
+          <div class="track-labels" aria-hidden="true">
+            <div class="ruler-spacer">TRACK</div>
+            <div><i class="track-color pose"></i><span><b>POSE</b><small>四腿 + 灯光</small></span></div>
+          </div>
+          <div id="timelineCanvas" class="timeline-canvas">
+            <div id="timelineRuler" class="timeline-ruler"></div>
+            <div id="timelineGrid" class="timeline-grid" aria-label="关键帧时间线"></div>
+            <div id="timelinePlayhead" class="timeline-playhead" aria-hidden="true"><i></i></div>
+            <input id="timelineScrubber" class="timeline-scrubber" type="range" min="0" max="4000" step="10" value="0" aria-label="时间线播放头">
+          </div>
+        </div>
+
+        <footer class="timeline-status">
+          <span id="frameCount">0 个关键帧</span>
+          <span id="recordingHint">拖动舵机或修改灯光后，按“另存为新姿态”保存当前状态。</span>
+          <span id="commandQueue">COMMAND QUEUE · IDLE</span>
+        </footer>
+      </section>
+    </main>
+
+    <footer class="status-bar">
+      <span><i id="firmwareDot"></i><b id="firmwareText">固件未连接</b></span>
+      <span id="servoLimits">PWM 500–2500 µs · 50 Hz</span>
+      <span class="status-spacer"></span>
+      <span id="lastCommand">暂无设备命令</span>
+      <span>ESC 急停 · SPACE 3D 预览 · R 录制 · HOME 校准 Home</span>
+    </footer>
+  </div>
+
+  <dialog id="armDialog" class="modal safety-modal" aria-labelledby="armDialogTitle">
+    <form method="dialog">
+      <div class="safety-icon" aria-hidden="true">!</div>
+      <span class="eyebrow">OUTPUT SAFETY</span>
+      <h2 id="armDialogTitle">确认开启舵机输出</h2>
+      <p>请先架空四条腿，确认舵机使用独立稳压电源并与主板共地。开启后，任何滑条变化都会让真实机构运动。</p>
+      <ul>
+        <li>机械结构周围没有手指、线材和障碍物</li>
+        <li>四路脉宽已校准在安全行程内</li>
+        <li>红色急停按钮始终可用，Esc 也可立即停止</li>
+      </ul>
+      <div id="powerInterlock" class="power-interlock checking" role="status">
+        <i aria-hidden="true"></i>
+        <span><strong id="powerInterlockTitle">正在检查舵机电源</strong><small id="powerInterlockDetail">等待板端 VBAT / servo power 状态…</small></span>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary-button" value="cancel">取消</button>
+        <button id="holdToArm" class="hold-button" type="button">
+          <span>按住 1.2 秒解锁</span><i aria-hidden="true"></i>
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="safePostureDialog" class="modal safety-modal posture-modal" aria-labelledby="safePostureDialogTitle">
+    <form method="dialog">
+      <div class="safety-icon posture-safety-icon" aria-hidden="true">⇅</div>
+      <span class="eyebrow">LOCKED FOUR-LEG ROUTINE</span>
+      <h2 id="safePostureDialogTitle">确认执行同步起身</h2>
+      <p id="safePostureDialogDescription">上位机将同时驱动四条腿，过渡完成后关闭全部 PWM 并复读状态。</p>
+      <div class="posture-route-card" aria-live="polite">
+        <span><small>START</small><strong id="safePostureStartLabel">实体已趴稳</strong></span>
+        <i aria-hidden="true">→</i>
+        <span><small>MODE</small><strong id="safePostureMode">FL + FR + RR + RL</strong></span>
+        <i aria-hidden="true">→</i>
+        <span><small>TARGET</small><strong id="safePostureTargetLabel">已标定 Home</strong></span>
+      </div>
+      <div class="posture-pulse-readout">
+        <span>目标原始脉宽</span>
+        <code id="safePosturePulses">— / — / — / — µs</code>
+      </div>
+      <ul>
+        <li id="safePostureStartRequirement">执行前必须确认实体已稳定趴下，不能从未知姿态开始</li>
+        <li>四腿会同时运动；全程扶稳机身，手指避开连杆和舵机行程</li>
+        <li>若出现顶死、持续嗡鸣或明显扭身，立即按红色急停或 Esc</li>
+      </ul>
+      <label class="posture-confirm" for="safePostureConfirm">
+        <input id="safePostureConfirm" type="checkbox">
+        <span aria-hidden="true"></span>
+        <b id="safePostureConfirmLabel">已趴稳并扶稳机身，急停可触达</b>
+      </label>
+      <div class="modal-actions">
+        <button id="safePostureCancelBtn" class="secondary-button" value="cancel">取消</button>
+        <button id="safePostureRunBtn" class="primary-button" type="button" disabled>执行同步起身</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="actionDialog" class="modal action-builder-modal" aria-labelledby="actionDialogTitle">
+    <form id="actionForm" method="dialog">
+      <header class="action-builder-header">
+        <span class="eyebrow">ACTION CREATOR</span>
+        <h2 id="actionDialogTitle">新建动作</h2>
+        <p>可以从空白时间线开始，也可用步态模板快速生成可编辑的关键帧。重命名不会改动已有姿态。</p>
+      </header>
+
+      <section id="actionTemplateGrid" class="action-template-section" aria-labelledby="actionTemplateTitle">
+        <div class="action-builder-section-head">
+          <span id="actionTemplateTitle"><b>1</b> 选择创作起点</span>
+          <small>稍后仍可在时间线中逐帧微调</small>
+        </div>
+        <div class="action-template-grid" role="group" aria-label="动作模板">
+          <button class="action-template-card active" type="button" data-action-template="custom" aria-pressed="true">
+            <span class="template-card-heading"><i aria-hidden="true">+</i><strong>自定义</strong></span>
+            <small>空白时间线，适合手动编姿态</small>
+          </button>
+          <button class="action-template-card" type="button" data-action-template="forward" aria-pressed="false">
+            <span class="template-card-heading"><i aria-hidden="true">↑</i><strong>向前走</strong></span>
+            <small>生成循环步态，低速试跑起步</small>
+          </button>
+          <button class="action-template-card" type="button" data-action-template="backward" aria-pressed="false">
+            <span class="template-card-heading"><i aria-hidden="true">↓</i><strong>向后走</strong></span>
+            <small>独立后退腿序，非前进倒放</small>
+          </button>
+          <button class="action-template-card" type="button" data-action-template="march" aria-pressed="false">
+            <span class="template-card-heading"><i aria-hidden="true">↕</i><strong>原地踏步</strong></span>
+            <small>小幅度检查腿序与机身稳定</small>
+          </button>
+          <button class="action-template-card" type="button" data-action-template="turn-left" aria-pressed="false">
+            <span class="template-card-heading"><i aria-hidden="true">↰</i><strong>向左转</strong></span>
+            <small>通过左右幅值差生成转向</small>
+          </button>
+          <button class="action-template-card" type="button" data-action-template="turn-right" aria-pressed="false">
+            <span class="template-card-heading"><i aria-hidden="true">↱</i><strong>向右转</strong></span>
+            <small>通过左右幅值差生成转向</small>
+          </button>
+          <button class="action-template-card risk-template-card" type="button" disabled aria-disabled="true">
+            <span class="template-card-heading"><i aria-hidden="true">!</i><strong>翻跟头自动生成</strong><em>机构未验证</em></span>
+            <small>当前 4×1DOF 先用自定义动作和“真机单步”逐帧调；完整高速模板仍禁用</small>
+          </button>
+        </div>
+      </section>
+
+      <label class="dialog-field action-name-field" for="actionNameInput">
+        <span>动作名称</span>
+        <input id="actionNameInput" maxlength="40" autocomplete="off" required>
+      </label>
+
+      <section id="gaitParameters" class="gait-parameters" aria-labelledby="gaitParametersTitle" hidden>
+        <div class="action-builder-section-head">
+          <span id="gaitParametersTitle"><b>2</b> 调整步态参数</span>
+          <small>先用保守值生成，再预览和微调</small>
+        </div>
+        <div class="gait-parameter-grid">
+          <label class="gait-select-field" for="gaitPattern">
+            <span>步态节拍</span>
+            <select id="gaitPattern">
+              <option value="crawl">四拍慢走 · 稳定优先</option>
+              <option value="trot">对角小跑 · 节奏更快</option>
+              <option value="pace">同侧步态 · 实验</option>
+            </select>
+          </label>
+
+          <div class="gait-range-field">
+            <div class="gait-field-head"><label for="gaitStroke">腿部行程</label><output id="gaitStrokeValue" for="gaitStroke">10%</output></div>
+            <input id="gaitStroke" class="gait-range" type="range" min="5" max="30" step="1" value="10">
+            <span class="gait-scale"><i>5% 保守</i><i>30% 大幅</i></span>
+          </div>
+
+          <div class="gait-range-field">
+            <div class="gait-field-head"><label for="gaitCadence">步态频率</label><output id="gaitCadenceValue" for="gaitCadence">0.30 Hz</output></div>
+            <input id="gaitCadence" class="gait-range" type="range" min="0.2" max="1" step="0.05" value="0.3">
+            <span class="gait-scale"><i>0.20 Hz</i><i>1.00 Hz</i></span>
+          </div>
+
+          <label class="gait-number-field" for="gaitCycles">
+            <span>生成周期</span>
+            <span class="gait-number-control"><input id="gaitCycles" type="number" min="1" max="12" step="1" value="2"><i>周期</i></span>
+          </label>
+
+          <div class="gait-range-field gait-turn-field">
+            <div class="gait-field-head"><label for="gaitTurn">转向混合</label><output id="gaitTurnValue" for="gaitTurn">直行</output></div>
+            <input id="gaitTurn" class="gait-range" type="range" min="-50" max="50" step="5" value="0">
+            <span class="gait-scale"><i>左 50%</i><i>直行 0</i><i>右 50%</i></span>
+          </div>
+        </div>
+        <p class="gait-safety-note"><strong>模板生成的是目标舵机命令，不是实机关节反馈。</strong>距离、速度和转角取决于机构与标定；请先做 3D 安全预览，再架空低速试跑。</p>
+      </section>
+
+      <div class="modal-actions">
+        <button class="secondary-button" value="cancel">取消</button>
+        <button id="actionDialogConfirm" class="primary-button" value="default">确认</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="shortcutDialog" class="modal small-modal" aria-labelledby="shortcutTitle">
+    <form method="dialog">
+      <span class="eyebrow">KEYBOARD</span>
+      <h2 id="shortcutTitle">键盘快捷键</h2>
+      <dl class="shortcut-list">
+        <div><dt>Space</dt><dd>3D 安全预览 / 停止预览</dd></div>
+        <div><dt>R</dt><dd>开始 / 停止录制</dd></div>
+        <div><dt>Esc</dt><dd>立即急停</dd></div>
+        <div><dt>Home</dt><dd>预览或下发当前设备已校准 Home</dd></div>
+        <div><dt>Delete</dt><dd>删除选中的关键帧</dd></div>
+        <div><dt>Ctrl / ⌘ + S</dt><dd>保存工程到本机</dd></div>
+      </dl>
+      <div class="modal-actions"><button class="primary-button" value="default">知道了</button></div>
+    </form>
+  </dialog>
+
+  <input id="projectImport" type="file" accept="application/json,.json" hidden>
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

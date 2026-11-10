@@ -1,0 +1,39 @@
+# Board Configuration
+#
+# Copyright (c) 2026, LISTENAI
+# SPDX-License-Identifier: Apache-2.0
+
+config BOARD_NAME
+    string
+    default "arcs_mini_v2_1"
+    prompt "Board Name"
+    help
+        Board Name
+
+config BOARD_ARCS_MINI
+    bool
+    default y
+    select SOC_LS2684
+    help
+        Board is an LS2684-based arcs_mini series board.
+
+config BOARD_ARCS_MINI_V2_1
+    bool
+    default y if BOARD_ARCS_MINI
+    select LISA_DEVICE
+    select LISA_GPIO_DEVICE
+    select LISA_GPIOA
+    select LISA_GPIOB
+    select LISA_PWM
+    select LISA_I2C
+    select LISA_I2C0
+    help
+        Board is arcs_mini_v2_1 (LS2684, QFN76). The MPU6050 and
+        PN532 share I2C0 on PB06/PB07.
+
+config BOARD_ARCS_MINI_MODEM_UART2_REMAP
+    bool "Remap UART2 to PA09/PA08 for modem"
+    default n
+    help
+        Compatibility option for the arcs-mini application configuration.
+        Keep this disabled: PA08 is WS2812 data and PA09 is the touch input.

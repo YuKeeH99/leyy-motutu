@@ -1,0 +1,151 @@
+#ifndef __VOICE_PLAYER_COMM_H__
+#define __VOICE_PLAYER_COMM_H__
+
+#include <stdint.h>
+#include <stddef.h>
+#include "voice_msg.h"
+#include "app_player.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* 播放器实例（在 voice_player_comm.c 中定义） */
+extern app_player_t *tone_player;
+extern app_player_t *tts_player;
+extern app_player_t *music_player;
+extern app_player_t *alert_player;
+extern app_player_t *beat_player;
+
+/**
+ * @brief 初始化语音播放器平台
+ * @return 0 成功, 其他失败
+ */
+int voice_player_platform_init(void);
+
+/**
+ * @brief 判断音乐播放器是否处于活跃音频播放管线中
+ *
+ * 包括准备中、准备完成和播放中；暂停/停止/空闲不算活跃。
+ */
+bool voice_player_is_music_active(void);
+
+/**
+ * @brief 判断任一播放器是否处于活跃音频播放管线中
+ *
+ * 包括准备中、准备完成和播放中；暂停/停止/空闲不算活跃。
+ */
+bool voice_player_is_audio_active(void);
+bool voice_player_is_non_tone_audio_active(void);
+
+/**
+ * @brief 播放音乐 URL，播放 /SD:/ 本地文件前会先确认路径可访问
+ * @param url 音乐 URL 或本地文件路径
+ * @return APP_PLAYER_OK 成功，其他失败
+ */
+int voice_player_play_music_url(const char *url);
+
+/**
+ * @brief 设置系统音量（设置所有已创建播放器的音量）
+ * @param volume 音量值 (0-100)
+ * @return 0 成功, 其他失败
+ */
+int voice_player_set_system_volume(int volume);
+
+/**
+ * @brief 获取系统音量
+ * @return 音量值 (0-100), 失败返回 -1
+ */
+int voice_player_get_system_volume(void);
+
+/**
+ * @brief 播放提示音 URL（带排队机制）。
+ *        若当前有 tone 正在播放则入队，播完自动播下一个。url 为 NULL 时直接跳过。
+ * @param url 提示音资源 URL（mem:// 或 http://）
+ */
+void voice_player_play_tone_url(const char *url);
+
+/** Play the standard network-recovered prompt with the existing debounce. */
+void voice_player_play_network_recovery_tone(void);
+/* Worker-safe: queue a fresh acknowledgement on the voice bus with uplink
+ * gated until playback completes. Negative return means chat must not start. */
+int voice_player_request_reconnected_wakeup_tone(void);
+
+/**
+ * @brief 播放提示音 URL（带 intent 栈管理）。
+ *
+ *        与 voice_player_play_tone_url 的区别：播放前会先 push INTENT_PROMPT_TONE，
+ *        主动触发当前栈顶意图（如 MUSIC）的 on_preempted → app_player_pause，
+ *        避免 tone 在音频焦点层直接抢占导致的 focus 状态不一致。
+ *        tone 播完后自动 pop INTENT_PROMPT_TONE 恢复被抢占意图。
+ *
+ *        适用于相机快门音等需要在播放期间暂停后台音乐的短促音效。
+ *
+ * @param url 提示音资源 URL（mem:// 或 http://）
+ */
+void voice_player_play_prompt_tone_url(const char *url);
+
+/**
+ * @brief 清理当前音频并同步播放本地关机语音。
+ *
+ * 仅用于用户确认关机后的最后提示；函数会等待本地提示播放完成或超时，
+ * 使调用方可以在返回后安全关闭功放和电源锁。
+ *
+ * @return 0 播放完成；负值表示播放器未就绪、资源缺失、播放失败或超时。
+ */
+int voice_player_play_shutdown_prompt_sync(void);
+void voice_player_begin_shutdown_prompt(void);
+
+/**
+ * @brief 关机流程未真正断电时恢复普通提示音接收。
+ *
+ * 例如无屏 V2.1 在关机提示期间插入 Type-C，power manager 会
+ * 拒绝断电；调用方必须在确认关机返回后调用本函数解除 gate。
+ */
+void voice_player_abort_shutdown_prompt(void);
+
+/**
+ * @brief 复制最近一次收到的 TTS URL
+ *
+ * @param url_buf 输出缓冲区
+ * @param buf_len 输出缓冲区长度
+ * @return true 复制成功，false 当前没有缓存可用 URL
+ */
+bool voice_player_latest_tts_url_copy(char *url_buf, size_t buf_len);
+
+/**
+ * @brief 重播指定的 TTS URL（绕开门控，直接入异步队列）
+ *
+ * 用于 intent 栈恢复被抢占的 VOICE_SESSION 时回放 TTS。
+ *
+ * @param url TTS 资源 URL
+ */
+void voice_player_replay_tts_url(const char *url);
+
+/**
+ * @brief 查询 TTS 播放器是否处于活跃状态（非阻塞）
+ *
+ * 基于 voice_player 内部维护的事件标志，不会获取播放器 operation_lock，
+ * 适合在 ebus 回调等时序敏感路径中使用。状态可能略滞后于底层播放器实例。
+ *
+ * @return true 已下发 TTS 播放/恢复请求且尚未收到 stop/error/complete 事件
+ */
+bool voice_player_tts_is_active(void);
+
+/** Local loudspeaker audio plus its tail blocks cloud upload, never AP wakeup. */
+bool voice_player_local_tone_blocks_uplink(void);
+
+/**
+ * @brief 异步播放 TTS URL（track URL + 入队播放，绕开门控）
+ *
+ * 供 camera 等模块在内部决定播放时机后直接下发 TTS。
+ *
+ * @param url TTS 资源 URL
+ */
+void voice_player_play_tts_url_async(const char *url);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __VOICE_PLAYER_COMM_H__ */
