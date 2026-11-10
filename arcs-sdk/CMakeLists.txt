@@ -1,0 +1,6 @@
+add_subdirectory(soc)
+add_subdirectory(system)
+add_subdirectory(components)
+add_subdirectory(drivers)
+add_subdirectory(boards)
+add_subdirectory(modules)
