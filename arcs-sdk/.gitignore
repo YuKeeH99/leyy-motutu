@@ -54,6 +54,9 @@ __pycache__/
 venv/
 target/
 vendor/
+# tinyusb 的 vendor 类目录是构建必需的源码，不能被上面的 vendor/ 规则排除
+!modules/tinyusb/src/class/vendor/
+!modules/tinyusb/src/class/vendor/**
 *.log
 coverage/
 tmp/
